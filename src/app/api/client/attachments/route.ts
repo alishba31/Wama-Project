@@ -7,11 +7,8 @@ import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable body parser to handle file uploads
-  },
-};
+// ✅ Replace deprecated config with runtime setting
+export const runtime = "nodejs"; // ensures Node.js APIs like fs/path work
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const decodedToken = jwt.verify(tokenCookie, process.env.JWT_SECRET!);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userId = (decodedToken as any).userId;
 
     if (!userId) {
@@ -42,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No files uploaded" }, { status: 400 });
     }
 
-    // Directory to save uploads
+    // Directory to save uploads (⚠️ won't persist on Vercel, but kept for now)
     const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
     await fs.mkdir(UPLOAD_DIR, { recursive: true }); // Create directory if it doesn't exist
 
