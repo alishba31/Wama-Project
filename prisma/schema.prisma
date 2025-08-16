@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  userId    Int
+  timestamp DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+}
+
+model Attachment {
+  id               Int            @id @default(autoincrement())
+  fileName         String
+  filePath         String
+  uploadedAt       DateTime       @default(now())
+  troubleTicketId  Int
+  formSubmissionId Int
+  FormSubmission   FormSubmission @relation(fields: [formSubmissionId], references: [id], onDelete: Cascade) // MODIFIED
+  TroubleTicket    TroubleTicket  @relation(fields: [troubleTicketId], references: [id], onDelete: Cascade) // MODIFIED
+
+  @@index([formSubmissionId])
+  @@index([troubleTicketId])
+}
+
+model Escalation {
+  id              Int           @id @default(autoincrement())
+  ticketId        Int
+  escalatedAt     DateTime      @default(now())
+  escalationLevel Int
+  TroubleTicket   TroubleTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade) // MODIFIED
+
+  @@index([ticketId])
+}
+
+model Feedback {
+  id             Int            @id @default(autoincrement())
+  comment        String
+  rating         Int
+  userId         Int
+  troubleTicketId Int
+  createdAt      DateTime       @default(now())
+  TroubleTicket  TroubleTicket  @relation(fields: [troubleTicketId], references: [id], onDelete: Cascade) // MODIFIED
+  User           User           @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+
+  @@index([troubleTicketId])
+  @@index([userId]) // Added index for userId in Feedback for consistency
+}
+
+model FormDefinition {
+  id             Int              @id @default(autoincrement())
+  formName       String
+  description    String?
+  schema         Json
+  createdAt      DateTime         @default(now())
+  FormSubmission FormSubmission[]
+}
+
+model FormSubmission {
+  id             Int            @id @default(autoincrement())
+  formId         Int
+  userId         Int
+  submittedData  Json
+  adminStatus    String         @default("PENDING")
+  oemStatus      String         @default("PENDING")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt // Added @updatedAt for consistency
+  Attachment     Attachment[]
+  FormDefinition FormDefinition @relation(fields: [formId], references: [id], onDelete: Cascade) // MODIFIED (if a form definition is deleted, submissions are deleted)
+  User           User           @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+  TroubleTicket  TroubleTicket?
+
+  @@index([formId])
+  @@index([userId])
+}
+
+model Report {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  data       Json
+  reportType String
+  userId     Int
+  User       User     @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+}
+
+model TroubleTicket {
+  id                         Int                          @id @default(autoincrement())
+  title                      String
+  description                String
+  adminStatus                String                       @default("PENDING")
+  oemStatus                  String                       @default("PENDING")
+  remarks                    String                       @default("")
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt // Added @updatedAt for consistency
+  formType                   String
+  userId                     Int
+  escalationLevel            Int                          @default(1)
+  formSubmissionId           Int                          @unique
+  lastEscalatedAt            DateTime?
+  Attachment                 Attachment[]
+  Escalation                 Escalation[]
+  FormSubmission             FormSubmission               @relation(fields: [formSubmissionId], references: [id], onDelete: Cascade) // MODIFIED (if form submission deleted, ticket is deleted)
+  User                       User                         @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+  TroubleTicketStatusHistory TroubleTicketStatusHistory[]
+  ProductSpecificReport      ProductSpecificReport[]
+  Feedback                   Feedback[]
+  SLARecord                  SLARecord?
+
+  @@index([formSubmissionId])
+  @@index([userId])
+}
+
+model TroubleTicketStatusHistory {
+  id            Int           @id @default(autoincrement())
+  ticketId      Int
+  status        String
+  timestamp     DateTime      @default(now())
+  TroubleTicket TroubleTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade) // MODIFIED
+
+  @@index([ticketId])
+}
+
+model User {
+  id                          Int                   @id @default(autoincrement())
+  email                       String                @unique
+  password                    String?
+  name                        String?
+  createdAt                   DateTime              @default(now())
+  resetToken                  String?
+  resetTokenExpiry            DateTime?
+  googleId                    String?               @unique
+  image                       String?
+  role                        String                @default("USER")
+  canAccessRestrictedFeatures Boolean               @default(true) // Default was true, kept it
+  ActivityLog                 ActivityLog[]
+  Feedback                    Feedback[]
+  FormSubmission              FormSubmission[]
+  Report                      Report[]
+  TroubleTicket               TroubleTicket[]
+  Notification                Notification[]
+  NotificationSetting         NotificationSetting[]
+}
+
+model WarrantyData {
+  id             Int      @id @default(autoincrement())
+  productType    String
+  serialNumber   String
+  clientName     String
+  warrantySpan   String   // e.g., "14 months", "5 years"
+  dateOfPurchase DateTime
+  createdAt      DateTime @default(now())
+}
+
+model ProductSpecificReport {
+  id                Int           @id @default(autoincrement())
+  productName       String
+  productCategory   String
+  modelNumber       String
+  manufacturerName  String
+  ticketId          Int
+  ticketDate        DateTime
+  adminStatus       String
+  oemStatus         String
+  ticketType        String
+  claimDescription  String
+  causeOfFailure    String
+  adminComments     String?
+  oemComments       String?
+  TroubleTicket     TroubleTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade) // MODIFIED
+
+  @@index([ticketId])
+}
+
+model SLARecord {
+  id             Int           @id @default(autoincrement())
+  ticketId       Int           @unique
+  slaStatus      String        @default("ACTIVE")  // ACTIVE, BREACHED, EXPIRED
+  slaStartTime   DateTime      // SLA start time
+  slaEndTime     DateTime      // SLA end time (expected resolution time)
+  breachDate     DateTime?     // When SLA was breached (if applicable)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt()
+  TroubleTicket  TroubleTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade) // MODIFIED
+
+  @@index([ticketId])
+}
+
+model ServiceReporting {
+  id            Int      @id @default(autoincrement())
+  title         String
+  reportType    String
+  extraRemarks  String?
+  filledBy      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt()
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+}
+
+model NotificationSetting {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @unique
+  ticketEscalation   Boolean  @default(false)
+  slaBreach          Boolean  @default(false)
+  newTicketCreated   Boolean  @default(false)
+  ticketStatusChange Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt()
+  User               User     @relation(fields: [userId], references: [id], onDelete: Cascade) // MODIFIED
+}
