@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -66,10 +67,10 @@
     "tailwindcss-animate": "^1.0.7",
     "use-debounce": "^10.0.5",
     "xlsx": "^0.18.5",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "@prisma/client": "^5.20.0"
   },
   "devDependencies": {
-    "@prisma/client": "^5.20.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie": "^0.6.0",
     "@types/express": "^5.0.0",
